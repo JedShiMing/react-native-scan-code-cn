@@ -4,7 +4,7 @@
 ### 1. Installation
 Using Npm
 
-`$ npm install react-native-scan-code-cn --save`
+`npm install react-native-scan-code-cn --save`
 
 Using Yarn
 
@@ -40,10 +40,14 @@ onLightBright | callback() | | 当前后置摄像头光源回调
 setFlashlight | function | | 设置手电筒开关
 
 
-## Usage
+## Examples
 Make sure permissions are turned on before using
 ```js
+import React, { useState, useEffect } from 'react'
+import { View, Platform, Animated, InteractionManager, Easing, TouchableOpacity, Text, StyleSheet, Dimensions } from 'react-native'
 import { RNScanCode } from 'react-native-scan-code-cn'
+
+const windowWidth = Dimensions.get('window').width
 
 const AMBIENT_BRIGHTNESS_DARK = Platform.OS === 'ios' ? 0 : 60
 
@@ -61,7 +65,7 @@ const ScanQrcodeScreen = ({ navigation, onclose }) => {
         InteractionManager.runAfterInteractions(() => {
             Animated.loop(
                 Animated.timing(animation, {
-                    toValue: adaptW(275),
+                    toValue: 275,
                     duration: 1500,
                     easing: Easing.linear,
                     useNativeDriver: true
@@ -71,7 +75,7 @@ const ScanQrcodeScreen = ({ navigation, onclose }) => {
     }, [])
 
     function barcodeReceived(e) {
-        // 扫描结果
+        console.log('扫码结果 = ', e);
     }
 
     // 手电筒逻辑
@@ -85,20 +89,20 @@ const ScanQrcodeScreen = ({ navigation, onclose }) => {
                     setFlashlightType('close')
                 }}
             >
-                <Text>打开</Text>
+                <Text>open</Text>
             </TouchableOpacity>
         ) : (
-            <TouchableOpacity
-                style={{ width: 100, height: 100, backgroundColor: 'yellow' }}
-                onPress={() => {
-                    RNScanCode.setFlashlight(false)
-                    onFlash = false
-                    setFlashlightType('open')
-                }}
-            >
-                <Text>关闭</Text>
-            </TouchableOpacity>
-        )
+                <TouchableOpacity
+                    style={{ width: 100, height: 100, backgroundColor: 'yellow' }}
+                    onPress={() => {
+                        RNScanCode.setFlashlight(false)
+                        onFlash = false
+                        setFlashlightType('open')
+                    }}
+                >
+                    <Text>close</Text>
+                </TouchableOpacity>
+            )
     }
 
     return (
@@ -108,7 +112,7 @@ const ScanQrcodeScreen = ({ navigation, onclose }) => {
                 codeTypes={[RNScanCode.Constants.CodeType.qr]}
                 onBarCodeRead={barcodeReceived}
                 onLightBright={(data: any) => {
-                    console.log('当前的光源= ', data.light)
+                    console.log('light = ', data.light)
                     if (!onFlash) {
                         if (Number(data.light) < AMBIENT_BRIGHTNESS_DARK) {
                             setIsFlashlight(true)
@@ -118,7 +122,6 @@ const ScanQrcodeScreen = ({ navigation, onclose }) => {
                     }
                 }}
             >
-                {/* 子组件 */}
                 <View style={style.scanView} pointerEvents="none">
                     <View style={style.scanAnimateView}>
                         <Animated.View
@@ -127,7 +130,10 @@ const ScanQrcodeScreen = ({ navigation, onclose }) => {
                                     {
                                         translateY: animation
                                     }
-                                ]
+                                ],
+                                backgroundColor: 'red',
+                                width: 100,
+                                height: 5,
                             }}
                         />
                     </View>
@@ -137,11 +143,35 @@ const ScanQrcodeScreen = ({ navigation, onclose }) => {
         </View>
     )
 }
+
+const style = StyleSheet.create({
+    preview: {
+        flex: 1,
+        flexDirection: 'column',
+        alignItems: 'center'
+    },
+    scanView: {
+        width: windowWidth,
+        height: 281,
+        marginTop: 61,
+        alignItems: 'center'
+    },
+    scanAnimateView: {
+        width: windowWidth,
+        height: 281,
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        alignItems: 'center',
+    },
+})
 ```
 
-<font color="red" size="7px">子组件使用事项</font>
+https://github.com/JedShiMing/scan-code-demo
 
-由于创建子视图会影响iOS捏合手势(缩放)功能,所以在需要缩放的组件添加
+## Troubleshooting
+#### 1. ios can't zoom
+Add to the component
 ```
 pointerEvents="none"
 ```
