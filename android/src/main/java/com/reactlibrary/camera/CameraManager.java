@@ -23,6 +23,7 @@ import android.graphics.Rect;
 import android.hardware.Camera;
 import android.os.Build;
 import android.os.Handler;
+import android.util.Log;
 import android.view.SurfaceHolder;
 
 import java.io.IOException;
@@ -123,6 +124,8 @@ public final class CameraManager {
             if (camera == null) {
                 throw new IOException();
             }
+
+
             camera.setPreviewDisplay(holder);
 
             if (!initialized) {
@@ -174,6 +177,12 @@ public final class CameraManager {
             if (!useOneShotPreviewCallback) {
                 camera.setPreviewCallback(null);
             }
+//            try {
+//                camera.setPreviewCallback(null);
+//                camera.setPreviewDisplay(null);
+//            } catch (Exception e) {
+//                Log.e(TAG, "stopPreview: erroe", e);
+//            }
             camera.stopPreview();
             previewCallback.setHandler(null, 0);
             autoFocusCallback.setHandler(null, 0);

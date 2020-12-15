@@ -1,10 +1,12 @@
 package com.reactlibrary;
 
 import android.app.Activity;
+import android.os.Build;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.common.MapBuilder;
@@ -12,13 +14,14 @@ import com.facebook.react.uimanager.SimpleViewManager;
 import com.facebook.react.uimanager.ThemedReactContext;
 import com.facebook.react.uimanager.annotations.ReactProp;
 import com.google.zxing.BarcodeFormat;
+import com.reactlibrary.view.camera2.Camera2View;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 
-public class RCTScanCodeManager extends SimpleViewManager<CaptureView> {
+public class RCTScanCodeManager extends SimpleViewManager<Camera2View> {
 
     private static final String TAG = "RCTScanCodeManager";
 
@@ -41,7 +44,6 @@ public class RCTScanCodeManager extends SimpleViewManager<CaptureView> {
     }
 
     public static final String REACT_CLASS = "RNScanCode";
-    CaptureView cap;
 
     /**
      * 设置别名
@@ -61,10 +63,15 @@ public class RCTScanCodeManager extends SimpleViewManager<CaptureView> {
      */
     @NonNull
     @Override
-    protected CaptureView createViewInstance(@NonNull ThemedReactContext context) {
+    protected Camera2View createViewInstance(@NonNull ThemedReactContext context) {
         Activity activity = context.getCurrentActivity();
-        cap = new CaptureView(activity, context);
-        return cap;
+//        cap = new CameraScanView(activity, context);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            Camera2View cap = new Camera2View(activity, context);
+            return cap;
+        }
+        return null;
     }
 
     /**
@@ -82,14 +89,14 @@ public class RCTScanCodeManager extends SimpleViewManager<CaptureView> {
         return builder.build();
     }
 
-    /**
-     * 设置属性,参数要加@Nullable,否则会报错
-     * @param captureView
-     * @param codeTypes
-     */
-    @ReactProp(name = "codeTypes")
-    public void setCodeTypes(CaptureView captureView, @Nullable ReadableArray codeTypes) {
-        captureView.setCodeTypes(codeTypes);
-    }
+//    /**
+//     * 设置属性,参数要加@Nullable,否则会报错
+//     * @param captureView
+//     * @param codeTypes
+//     */
+//    @ReactProp(name = "codeTypes")
+//    public void setCodeTypes(CaptureView captureView, @Nullable ReadableArray codeTypes) {
+//        captureView.setCodeTypes(codeTypes);
+//    }
 
 }

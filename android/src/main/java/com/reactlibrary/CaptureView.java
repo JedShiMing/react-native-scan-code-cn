@@ -54,7 +54,6 @@ public class CaptureView extends FrameLayout implements Callback, LifecycleEvent
         LayoutInflater.from(context).inflate(R.layout.activity_scanner, this);
         CameraManager.init(activity.getApplication());
         RNScanCodeHelper.setView(this);
-        // 进程状态切换监听器
     }
 
     /**
@@ -116,7 +115,7 @@ public class CaptureView extends FrameLayout implements Callback, LifecycleEvent
      * 初始化视图
      */
     protected void init() {
-        SurfaceView surfaceView = (SurfaceView) findViewById(R.id.scanner_view);
+        SurfaceView surfaceView = (SurfaceView) findViewById(R.id.sfv_surfaceView);
         SurfaceHolder surfaceHolder = surfaceView.getHolder();
         if (hasSurface) {
             initCamera(surfaceHolder);
@@ -132,22 +131,17 @@ public class CaptureView extends FrameLayout implements Callback, LifecycleEvent
      */
     private void initCamera(final SurfaceHolder surfaceHolder) {
         //加点延时使打开不卡顿
-        post(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    CameraManager.get().openDriver(surfaceHolder);
-                } catch (IOException ioe) {
-                    return;
-                } catch (RuntimeException e) {
-                    return;
-                }
-                if (handler == null) {
-                    handler = new CaptureActivityHandler(CaptureView.this, decodeFormats,
-                            characterSet);
-                }
-            }
-        });
+        try {
+            CameraManager.get().openDriver(surfaceHolder);
+        } catch (IOException ioe) {
+            return;
+        } catch (RuntimeException e) {
+            return;
+        }
+        if (handler == null) {
+            handler = new CaptureActivityHandler(CaptureView.this, decodeFormats,
+                    characterSet);
+        }
     }
 
     /**
@@ -253,30 +247,6 @@ public class CaptureView extends FrameLayout implements Callback, LifecycleEvent
             camera.setParameters(params);
         }
     }
-
-//    @Override
-//    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
-//        super.onLayout(changed, left, top, right, bottom);
-//        Log.d("CaptureView", "onLayout onLayout left : " + left + " top : " + top + " right : " + right + " bottom : " + bottom);
-//
-//        View preview = findViewById(R.id.scanner_view);
-//        if (null == preview) {
-//            return;
-//        }
-//        int width = right - left;
-//        int height = bottom - top;
-//        //        Log.d("CaptureView", "onLayout onLayout correctWidth : " + correctWidth + " correctHeight : " + correctHeight + " paddingX : " + paddingX + " paddingY : " + paddingY);
-//        preview.layout(0, 0, width, height);
-//    }
-
-//    /**
-    //     * 自适应大小
-    //     */
-    //    @SuppressLint("all")
-    //    @Override
-    //    public void requestLayout() {
-    //        //        super.requestLayout();
-    //    }
 
     @Override
     public void onHostResume() {

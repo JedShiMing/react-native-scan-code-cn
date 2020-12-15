@@ -90,12 +90,15 @@ export class RNScanCode extends React.Component {
             ...otherProps
         } = this.props
         const {surfaceWidth, surfaceHeight} = this.state
+        const { width, height } = Dimensions.get('window')
+        let _height = height + (Platform.OS === 'ios' ? 0 : StatusBar.currentHeight)
+
         return (
-            <View style={{flex: 1, backgroundColor: 'green'}} onLayout={event => {
-                this.setState({surfaceHeight: event.nativeEvent.layout.height})
+            <View style={{flex: 1, backgroundColor: '#000'}} onLayout={event => {
+                // this.setState({surfaceHeight: event.nativeEvent.layout.height})
             }}>
                 <NativeBarCode
-                    style={{width: surfaceWidth, height: surfaceHeight}}
+                    style={{width: width, height: _height}}
                     {...otherProps}
                     codeTypes={codeTypes}
                     onBarCodeRead={this._onObjectDetected(onBarCodeRead)}
