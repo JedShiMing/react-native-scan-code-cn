@@ -89,14 +89,16 @@ public class RCTScanCodeManager extends SimpleViewManager<Camera2View> {
         return builder.build();
     }
 
-//    /**
-//     * 设置属性,参数要加@Nullable,否则会报错
-//     * @param captureView
-//     * @param codeTypes
-//     */
-//    @ReactProp(name = "codeTypes")
-//    public void setCodeTypes(CaptureView captureView, @Nullable ReadableArray codeTypes) {
-//        captureView.setCodeTypes(codeTypes);
-//    }
+    /**
+     * 设置属性,参数要加@Nullable,否则会报错
+     * @param captureView
+     * @param codeTypes
+     */
+    @ReactProp(name = "codeTypes")
+    public void setCodeTypes(Camera2View captureView, @Nullable ReadableArray codeTypes) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            captureView.setCodeTypes(codeTypes);
+        }
+    }
 
 }

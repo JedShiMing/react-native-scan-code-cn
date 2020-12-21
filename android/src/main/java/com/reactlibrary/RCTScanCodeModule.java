@@ -1,5 +1,6 @@
 package com.reactlibrary;
 
+import android.os.Build;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -9,6 +10,7 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.google.zxing.BarcodeFormat;
+import com.reactlibrary.view.camera2.Camera2View;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,7 +40,9 @@ public class RCTScanCodeModule extends ReactContextBaseJavaModule {
      */
     @ReactMethod
     public void setFlashlight(boolean onFlash) {
-        CaptureView.setFlashlight(onFlash);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            Camera2View.setFlashlight(onFlash);
+        }
     }
 
     /**

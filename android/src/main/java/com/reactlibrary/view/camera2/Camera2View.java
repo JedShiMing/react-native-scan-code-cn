@@ -2,7 +2,7 @@ package com.reactlibrary.view.camera2;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.content.Context;
+import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
@@ -31,14 +31,21 @@ import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
 import com.facebook.react.bridge.ReactContext;
+import com.facebook.react.bridge.ReadableArray;
+import com.google.zxing.BarcodeFormat;
 import com.reactlibrary.R;
+import com.reactlibrary.decoding.EncodeHandler;
+import com.reactlibrary.util.ImageUtil;
+import com.reactlibrary.util.RNScanCodeHelper;
 import com.reactlibrary.util.TouchEventUtil;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Vector;
 
 import static android.content.Context.CAMERA_SERVICE;
 
@@ -48,8 +55,8 @@ import static android.content.Context.CAMERA_SERVICE;
 @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
 public class Camera2View extends FrameLayout {
     private static final String TAG = Camera2View.class.getCanonicalName();
-    private Activity activity;
-    private ReactContext context;
+    private final Activity activity;
+    private final ReactContext context;
     // 摄像头ID
     private String mCameraId;
     // 相机设备实例
@@ -60,15 +67,16 @@ public class Camera2View extends FrameLayout {
     private CameraCaptureSession mCameraCaptureSession;
     // 配置CameraRequest
     private CaptureRequest.Builder mPreviewRequestBuilder;
-    private List<String> mBackCameraIds;
-    private TextureView mTextureView;
+    private AutoFitTextureView mTextureView;
     private ImageReader mImageReader;
+    private CameraCharacteristics characteristics;
 
     private HandlerThread mHandlerThread;
     private Handler mHandler;
     private Size mPreviewSize;
-
     private float maxZoom;
+
+    EncodeHandler encodeHandler = new EncodeHandler();
 
     @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     public Camera2View(Activity activity, @NonNull ReactContext context) {
@@ -76,30 +84,21 @@ public class Camera2View extends FrameLayout {
         this.activity = activity;
         this.context = context;
         LayoutInflater.from(context).inflate(R.layout.camera2view, this);
-        mTextureView = findViewById(R.id.camera2_textureView);
-        mCameraManager = (CameraManager) activity.getSystemService(CAMERA_SERVICE);
-        getAllBackCameraId();
-        mHandlerThread = new HandlerThread("camera-background");
-        mHandlerThread.start();
-        mHandler = new Handler(mHandlerThread.getLooper());
 
+        RNScanCodeHelper.setView(this);
+
+        mTextureView = (AutoFitTextureView) findViewById(R.id.camera2_textureView);
         mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
-    private void getAllBackCameraId() {
-        mBackCameraIds = new ArrayList<>();
-        try {
-            for (String cameraId : mCameraManager.getCameraIdList()) {
-                CameraCharacteristics characteristics = mCameraManager.getCameraCharacteristics(cameraId);
-                Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
-                if (facing != null && facing == CameraCharacteristics.LENS_FACING_BACK) {
-                    mBackCameraIds.add(cameraId);
-                }
-            }
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
+    /**
+     * 生命周期-onResume
+     */
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        initCamera();
+        startBackgroundThread();
     }
 
     /**
@@ -125,6 +124,77 @@ public class Camera2View extends FrameLayout {
             mImageReader = null;
         }
     }
+
+    // 初始化相机
+    private void initCamera() {
+        mCameraManager = (CameraManager) this.activity.getSystemService(CAMERA_SERVICE);
+        mCameraId = getBackCameraId();
+        try {
+            characteristics = mCameraManager.getCameraCharacteristics(mCameraId);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+        maxZoom = (characteristics.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)) * 10;
+    }
+
+    private void startBackgroundThread() {
+        mHandlerThread = new HandlerThread("camera-background");
+        mHandlerThread.start();
+        mHandler = new Handler(mHandlerThread.getLooper());
+    }
+
+    // 获取后置摄像头ID
+    private String getBackCameraId() {
+        try {
+            for (String cameraId : mCameraManager.getCameraIdList()) {
+                CameraCharacteristics characteristics = mCameraManager.getCameraCharacteristics(cameraId);
+                int cameraFacing = characteristics.get(CameraCharacteristics.LENS_FACING);
+                if (cameraFacing == CameraCharacteristics.LENS_FACING_BACK) {
+                    return cameraId;
+                }
+            }
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    // 画布渲染回调
+    private TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
+        @SuppressLint("MissingPermission")
+        @Override
+        public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
+            try {
+                StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+                mPreviewSize = getOptimalSize(map.getOutputSizes(SurfaceTexture.class), width, height);
+                mCameraManager.openCamera(mCameraId, mCameraDeviceStateCallback, mHandler);
+            } catch (CameraAccessException e) {
+                e.printStackTrace();
+            }
+        }
+
+        @Override
+        public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
+            Log.d(TAG, "onSurfaceTextureSizeChanged: -----------");
+            int orientation = Camera2View.this.getResources().getConfiguration().orientation;
+            if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                mTextureView.setAspectRatio(mPreviewSize.getWidth(), mPreviewSize.getHeight());
+            } else {
+                mTextureView.setAspectRatio(mPreviewSize.getHeight(), mPreviewSize.getWidth());
+            }
+        }
+
+        @Override
+        public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
+            return false;
+        }
+
+        @Override
+        public void onSurfaceTextureUpdated(SurfaceTexture surface) {
+//            Log.d(TAG, "onSurfaceTextureUpdated: -----------" + surface);
+        }
+    };
 
     private final CameraDevice.StateCallback mCameraDeviceStateCallback = new CameraDevice.StateCallback() {
         @Override
@@ -165,6 +235,29 @@ public class Camera2View extends FrameLayout {
         }
     };
 
+    private void setupImageReader() {
+        //前三个参数分别是需要的尺寸和格式，最后一个参数代表每次最多获取几帧数据
+        mImageReader = ImageReader.newInstance(mPreviewSize.getWidth(), mPreviewSize.getHeight(), ImageFormat.YUV_420_888, 3);
+        //监听ImageReader的事件，当有图像流数据可用时会回调onImageAvailable方法，它的参数就是预览帧数据，可以对这帧数据进行处理
+        mImageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
+            @Override
+            public void onImageAvailable(ImageReader reader) {
+                try (Image image = reader.acquireNextImage()) {
+                    Image.Plane[] planes = image.getPlanes();
+                    if (planes.length > 0) {
+                        ByteBuffer buffer = planes[0].getBuffer();
+                        byte[] data = new byte[buffer.remaining()];
+                        buffer.get(data);
+                        // 识别光源
+                        ImageUtil.recognitionLight(data, image.getWidth(), image.getHeight());
+                        // 扫码
+                        encodeHandler.encode(data, image.getWidth(), image.getHeight());
+                    }
+                }
+            }
+        }, null);
+    }
+
     // session回调
     private CameraCaptureSession.StateCallback mSessionStateCallback = new CameraCaptureSession.StateCallback() {
         @Override
@@ -181,61 +274,6 @@ public class Camera2View extends FrameLayout {
         @Override
         public void onConfigureFailed(@NonNull CameraCaptureSession session) {
 
-        }
-    };
-
-    private void setupImageReader() {
-        //前三个参数分别是需要的尺寸和格式，最后一个参数代表每次最多获取几帧数据
-        mImageReader = ImageReader.newInstance(mPreviewSize.getWidth(), mPreviewSize.getHeight(), ImageFormat.YUV_420_888, 3);
-        //监听ImageReader的事件，当有图像流数据可用时会回调onImageAvailable方法，它的参数就是预览帧数据，可以对这帧数据进行处理
-        mImageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
-            @Override
-            public void onImageAvailable(ImageReader reader) {
-                Image image = reader.acquireLatestImage();
-                int imageWidth = image.getWidth();
-                int imageHeight = image.getHeight();
-                byte[] bys = ImageUtil.getBytesFromImageAsType(image, 2);
-//                int rgb[] = ImageUtil.decodeYUV420SP(bys, imageWidth, imageHeight);
-//                Log.d(TAG, "onImageAvailable: " + bys);
-                ImageUtil.recognitionLight(bys, imageWidth, imageHeight);
-//                image.close();
-            }
-        }, null);
-    }
-
-    // 画布渲染回调
-    private TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
-        @SuppressLint("MissingPermission")
-        @Override
-        public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
-//            Log.d(TAG, "onSurfaceTextureAvailable: ++");
-            mCameraId = mBackCameraIds.get(0);
-            try {
-                CameraCharacteristics characteristics = mCameraManager.getCameraCharacteristics(mCameraId);
-                maxZoom = (characteristics.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM)) * 10;
-                StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-                mPreviewSize = getOptimalSize(map.getOutputSizes(SurfaceTexture.class), width, height);
-                Log.d(TAG, "onSurfaceTextureAvailable: max zoom = " + maxZoom);
-                //camera 的 open 操作比较耗时,放在 mHandler 线程去做
-                mCameraManager.openCamera(mCameraId, mCameraDeviceStateCallback, mHandler);
-            } catch (CameraAccessException e) {
-                e.printStackTrace();
-            }
-        }
-
-        @Override
-        public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
-            Log.d(TAG, "onSurfaceTextureSizeChanged: -----------");
-        }
-
-        @Override
-        public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-            return false;
-        }
-
-        @Override
-        public void onSurfaceTextureUpdated(SurfaceTexture surface) {
-//            Log.d(TAG, "onSurfaceTextureUpdated: -----------" + surface);
         }
     };
 
@@ -278,12 +316,12 @@ public class Camera2View extends FrameLayout {
 
         for (Range<Integer> range : ranges) {
             //帧率不能太低，大于10
-            if (range.getLower()<10)
+            if (range.getLower() < 10)
                 continue;
-            if (result==null)
+            if (result == null)
                 result = range;
                 //FPS下限小于15，弱光时能保证足够曝光时间，提高亮度。range范围跨度越大越好，光源足够时FPS较高，预览更流畅，光源不够时FPS较低，亮度更好。
-            else if (range.getLower()<=15 && (range.getUpper()-range.getLower())>(result.getUpper()-result.getLower()))
+            else if (range.getLower() <= 15 && (range.getUpper() - range.getLower()) > (result.getUpper() - result.getLower()))
                 result = range;
         }
         return result;
@@ -321,12 +359,6 @@ public class Camera2View extends FrameLayout {
     }
 
     private void handleZoom(boolean b) {
-        CameraCharacteristics characteristics = null;
-        try {
-            characteristics = mCameraManager.getCameraCharacteristics(mCameraId);
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
         Rect m = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
         if (b) {
             if (zoom_level + 1 < maxZoom / 2) {
@@ -336,7 +368,7 @@ public class Camera2View extends FrameLayout {
             }
         } else {
             if (zoom_level - 2 > 0) {
-                zoom_level --;
+                zoom_level--;
             } else {
                 return;
             }
@@ -357,5 +389,25 @@ public class Camera2View extends FrameLayout {
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
+    }
+
+    // 设置闪光灯
+    public void setCodeTypes(ReadableArray codeTypes) {
+        if (codeTypes == null || codeTypes.size() == 0) {
+            encodeHandler.setCodeType(null);
+            return;
+        }
+        Vector<BarcodeFormat> result = new Vector<BarcodeFormat>(codeTypes.size());
+        for (int i = 0; i < codeTypes.size(); i++) {
+            BarcodeFormat format = BarcodeFormat.valueOf(codeTypes.getString(i));
+            result.add(format);
+        }
+        encodeHandler.setCodeType(result);
+    }
+
+    // 设置闪光灯
+    public static void setFlashlight(boolean isFlash) {
+        Log.d(TAG, "设置闪光灯: " + isFlash);
+//        mPreviewRequestBuilder.set();
     }
 }
