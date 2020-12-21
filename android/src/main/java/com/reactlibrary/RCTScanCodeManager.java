@@ -65,8 +65,6 @@ public class RCTScanCodeManager extends SimpleViewManager<Camera2View> {
     @Override
     protected Camera2View createViewInstance(@NonNull ThemedReactContext context) {
         Activity activity = context.getCurrentActivity();
-//        cap = new CameraScanView(activity, context);
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             Camera2View cap = new Camera2View(activity, context);
             return cap;

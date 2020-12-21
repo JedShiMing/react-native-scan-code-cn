@@ -11,6 +11,7 @@ import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
@@ -64,9 +65,9 @@ public class Camera2View extends FrameLayout {
     // 摄像头管理类
     private CameraManager mCameraManager;
     // 预览,可以获取拍摄的图片信息，可以通过它的setRepeatingRequest()方法来控制预览界面
-    private CameraCaptureSession mCameraCaptureSession;
+    private static CameraCaptureSession mCameraCaptureSession;
     // 配置CameraRequest
-    private CaptureRequest.Builder mPreviewRequestBuilder;
+    private static CaptureRequest.Builder mPreviewRequestBuilder;
     private AutoFitTextureView mTextureView;
     private ImageReader mImageReader;
     private CameraCharacteristics characteristics;
@@ -391,7 +392,7 @@ public class Camera2View extends FrameLayout {
         }
     }
 
-    // 设置闪光灯
+    // 设置支持的扫码类型
     public void setCodeTypes(ReadableArray codeTypes) {
         if (codeTypes == null || codeTypes.size() == 0) {
             encodeHandler.setCodeType(null);
@@ -408,6 +409,15 @@ public class Camera2View extends FrameLayout {
     // 设置闪光灯
     public static void setFlashlight(boolean isFlash) {
         Log.d(TAG, "设置闪光灯: " + isFlash);
-//        mPreviewRequestBuilder.set();
+        if (!isFlash) {
+            mPreviewRequestBuilder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF);
+        } else {
+            mPreviewRequestBuilder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH);
+        }
+        try {
+            mCameraCaptureSession.setRepeatingRequest(mPreviewRequestBuilder.build(), null, null);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
     }
 }
