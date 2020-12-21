@@ -1,14 +1,15 @@
 {
   "name": "react-native-scan-code-cn",
   "title": "React Native Scan Code cn",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "扫码插件,支持后置摄像头光源感应",
   "main": "index.js",
   "files": [
-    "README.md",
     "android",
-    "index.js",
     "ios",
+    "README.md",
+    "index.d.ts",
+    "index.js",
     "react-native-scan-code-cn.podspec"
   ],
   "scripts": {
